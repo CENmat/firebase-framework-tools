@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FeedstockMatch — Circular Bioeconomy Matching Platform</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Leaflet.heat plugin for heatmap -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ── Top Navigation ──────────────────────────────────────────── -->
+  <nav class="topnav">
+    <div class="topnav-brand">
+      <span class="logo">FM</span>
+      <span class="brand-name">FeedstockMatch</span>
+    </div>
+    <div class="topnav-links">
+      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="map">Map</button>
+      <button class="nav-btn" data-view="matches">Matches</button>
+      <button class="nav-btn" data-view="listings">Listings</button>
+      <button class="nav-btn" data-view="audit">Audit Trail</button>
+      <button class="nav-btn" data-view="methodology">LCA Methodology</button>
+    </div>
+  </nav>
+
+  <!-- ── Dashboard View ──────────────────────────────────────────── -->
+  <section id="view-dashboard" class="view active">
+    <div class="view-header">
+      <h1>Platform Dashboard</h1>
+      <p class="subtitle">Circular bioeconomy supply-demand overview</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-feedstocks">--</div>
+        <div class="stat-label">Active Feedstocks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-processors">--</div>
+        <div class="stat-label">Active Processors</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-matches">--</div>
+        <div class="stat-label">Matches Computed</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-value" id="stat-ghg">--</div>
+        <div class="stat-label">Net GHG Avoided (t CO2e)</div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="card">
+        <h3>Supply by Category</h3>
+        <canvas id="chart-supply-category"></canvas>
+      </div>
+      <div class="card">
+        <h3>Processor Technology Mix</h3>
+        <canvas id="chart-processor-tech"></canvas>
+      </div>
+      <div class="card">
+        <h3>Regional Supply vs. Demand (t/month)</h3>
+        <canvas id="chart-regional"></canvas>
+      </div>
+      <div class="card">
+        <h3>FAOSTAT Residue Context</h3>
+        <div id="faostat-table-container" class="table-container"></div>
+      </div>
+    </div>
+
+    <!-- Why this doesn't exist -->
+    <div class="card why-card">
+      <h3>Why This Platform Doesn't Exist Yet</h3>
+      <div class="why-content">
+        <div class="why-column">
+          <h4>The Problem</h4>
+          <ul>
+            <li>Organic byproducts are generated at predictable volumes, but suppliers and processors find each other through brokers, spreadsheets, and word-of-mouth.</li>
+            <li>No platform integrates <strong>geospatial matching</strong> + <strong>transparent LCA estimates</strong> + <strong>compliance audit trails</strong> in one workflow.</li>
+            <li>Existing LCA databases (ecoinvent, GREET) are expert-only tools, not accessible to the operators who actually move feedstock.</li>
+          </ul>
+        </div>
+        <div class="why-column">
+          <h4>What FeedstockMatch Solves</h4>
+          <ul>
+            <li>A food processor with 200 t/month of spent grain can see which AD facilities within 150 km have capacity, get a GHG estimate, verify contamination compatibility, and generate an audit record &mdash; in one session.</li>
+            <li>Every emission factor, every assumption, every override is logged and transparent.</li>
+            <li>The platform bridges three siloed systems: waste brokerage, LCA databases, and permit tracking.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Map View ────────────────────────────────────────────────── -->
+  <section id="view-map" class="view">
+    <div class="view-header">
+      <h1>Supply-Demand Map</h1>
+      <div class="map-controls">
+        <label>
+          <input type="checkbox" id="toggle-heatmap" checked /> Heatmap overlay
+        </label>
+        <label>
+          <input type="checkbox" id="toggle-feedstocks" checked /> Feedstocks
+        </label>
+        <label>
+          <input type="checkbox" id="toggle-processors" checked /> Processors
+        </label>
+      </div>
+    </div>
+    <div id="map-container"></div>
+    <div class="map-legend">
+      <div class="legend-item"><span class="legend-dot supply"></span> Feedstock (supply)</div>
+      <div class="legend-item"><span class="legend-dot demand"></span> Processor (demand)</div>
+      <div class="legend-item"><span class="legend-gradient"></span> Heatmap: green = surplus supply, red = surplus demand</div>
+    </div>
+  </section>
+
+  <!-- ── Matches View ────────────────────────────────────────────── -->
+  <section id="view-matches" class="view">
+    <div class="view-header">
+      <h1>Match Explorer</h1>
+      <p class="subtitle">Select a feedstock to find compatible processors</p>
+    </div>
+
+    <div class="match-controls">
+      <div class="form-group">
+        <label for="match-feedstock-select">Feedstock</label>
+        <select id="match-feedstock-select"><option value="">Select a feedstock...</option></select>
+      </div>
+      <button class="btn btn-primary" id="btn-find-matches">Find Matches</button>
+    </div>
+
+    <!-- Scenario slider panel -->
+    <div class="scenario-panel" id="scenario-panel" style="display:none;">
+      <h3>Scenario Parameters</h3>
+      <div class="slider-grid">
+        <div class="slider-group">
+          <label>Max Distance: <span id="val-distance">200</span> km</label>
+          <input type="range" id="slider-distance" min="10" max="500" value="200" step="10" />
+        </div>
+        <div class="slider-group">
+          <label>Transport Mode</label>
+          <select id="select-transport">
+            <option value="truck_avg">Truck (avg load)</option>
+            <option value="truck_full">Truck (full load)</option>
+            <option value="rail">Rail</option>
+            <option value="barge">Barge</option>
+          </select>
+        </div>
+        <div class="slider-group">
+          <label>Baseline Scenario</label>
+          <select id="select-baseline">
+            <option value="landfill_gas_capture">Landfill (gas capture)</option>
+            <option value="landfill_no_capture">Landfill (no capture)</option>
+            <option value="open_dump">Open dump</option>
+            <option value="open_burning">Open burning</option>
+            <option value="field_incorporation">Field incorporation</option>
+            <option value="slash_burning">Slash burning</option>
+            <option value="decay_in_place">Decay in place</option>
+            <option value="lagoon_storage">Lagoon storage</option>
+          </select>
+        </div>
+        <div class="slider-group">
+          <label>Fugitive CH4 leak: <span id="val-leak">2</span>%</label>
+          <input type="range" id="slider-leak" min="0" max="10" value="2" step="0.5" />
+        </div>
+        <div class="slider-group">
+          <label>Grid EF: <span id="val-grid">0.40</span> kg CO2e/kWh</label>
+          <input type="range" id="slider-grid" min="0.05" max="1.0" value="0.4" step="0.05" />
+        </div>
+        <div class="slider-group">
+          <label>
+            <input type="checkbox" id="check-avoided" checked /> Include avoided emissions
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Match results -->
+    <div id="match-results" class="match-results"></div>
+  </section>
+
+  <!-- ── Listings View ───────────────────────────────────────────── -->
+  <section id="view-listings" class="view">
+    <div class="view-header">
+      <h1>Feedstock & Processor Listings</h1>
+      <div class="listing-tabs">
+        <button class="tab-btn active" data-tab="feedstocks-tab">Feedstocks</button>
+        <button class="tab-btn" data-tab="processors-tab">Processors</button>
+      </div>
+    </div>
+
+    <div id="feedstocks-tab" class="tab-content active">
+      <div id="feedstocks-list" class="listings-grid"></div>
+    </div>
+    <div id="processors-tab" class="tab-content">
+      <div id="processors-list" class="listings-grid"></div>
+    </div>
+  </section>
+
+  <!-- ── Audit Trail View ────────────────────────────────────────── -->
+  <section id="view-audit" class="view">
+    <div class="view-header">
+      <h1>Compliance Audit Trail</h1>
+      <div class="audit-controls">
+        <button class="btn btn-secondary" id="btn-verify-chain">Verify Chain Integrity</button>
+        <button class="btn btn-secondary" id="btn-export-audit">Export CSV</button>
+        <span id="chain-status" class="chain-status"></span>
+      </div>
+    </div>
+    <div id="audit-table-container" class="table-container"></div>
+  </section>
+
+  <!-- ── LCA Methodology View ────────────────────────────────────── -->
+  <section id="view-methodology" class="view">
+    <div class="view-header">
+      <h1>LCA Methodology Transparency</h1>
+      <p class="subtitle">Every emission factor and assumption used by FeedstockMatch, with sources</p>
+    </div>
+    <div id="methodology-content" class="methodology-content"></div>
+  </section>
+
+  <!-- ── Match Detail Modal ──────────────────────────────────────── -->
+  <div id="match-modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="btn-close-modal">&times;</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
