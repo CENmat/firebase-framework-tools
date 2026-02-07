@@ -46,17 +46,22 @@ function toRad(deg: number): number {
  * Falls back to Haversine × detour factor if OSRM is unavailable.
  */
 export async function estimateRoute(from: GeoPoint, to: GeoPoint): Promise<RouteResult> {
-  try {
-    const result = await queryOSRM(from, to);
-    return result;
-  } catch {
-    // Fallback to Haversine
-    const straightLine = calculateDistance(from, to);
-    return {
-      distanceKm: Math.round(straightLine * HAVERSINE_DETOUR_FACTOR * 10) / 10,
-      source: "haversine_fallback",
-    };
+  // In production, set OSRM_ENABLED=true to use OSRM routing.
+  // In dev/CI environments without network access, use Haversine fallback.
+  if (process.env.OSRM_ENABLED === "true") {
+    try {
+      const result = await queryOSRM(from, to);
+      return result;
+    } catch {
+      // fall through to Haversine
+    }
   }
+
+  const straightLine = calculateDistance(from, to);
+  return {
+    distanceKm: Math.round(straightLine * HAVERSINE_DETOUR_FACTOR * 10) / 10,
+    source: "haversine_fallback",
+  };
 }
 
 /**
@@ -72,7 +77,7 @@ async function queryOSRM(from: GeoPoint, to: GeoPoint): Promise<RouteResult> {
   const url = `${OSRM_BASE_URL}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), 2000);
 
   try {
     const response = await fetch(url, {

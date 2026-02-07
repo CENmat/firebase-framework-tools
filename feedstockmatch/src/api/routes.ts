@@ -250,6 +250,24 @@ router.post("/matches/:id/reject", async (req: Request, res: Response) => {
 
 // ── Impact / LCA ──────────────────────────────────────────────────────
 
+router.get("/impact/methodology", (_req: Request, res: Response) => {
+  res.json({
+    description: "FeedstockMatch LCA methodology — all emission factors with sources",
+    factors: getEmissionFactorTables(),
+    systemBoundary: "Cradle-to-gate: feedstock generation → collection/transport → processing → output",
+    uncertaintyMethod: "±30% deterministic range (default) or Monte Carlo simulation",
+    references: [
+      "EPA WARM v16",
+      "IPCC 2006 Guidelines for National GHG Inventories",
+      "IPCC 2019 Refinement",
+      "GLEC Framework v3.0",
+      "GREET 2024 (Argonne National Lab)",
+      "ecoinvent 3.9",
+      "IEA Emission Factors by Country (2024)",
+    ],
+  });
+});
+
 router.get("/impact/:matchId", (req: Request, res: Response) => {
   const match = getMatch(req.params.matchId);
   if (!match) {
@@ -301,36 +319,7 @@ router.post("/impact/scenario", async (req: Request, res: Response) => {
   });
 });
 
-router.get("/impact/methodology", (_req: Request, res: Response) => {
-  res.json({
-    description: "FeedstockMatch LCA methodology — all emission factors with sources",
-    factors: getEmissionFactorTables(),
-    systemBoundary: "Cradle-to-gate: feedstock generation → collection/transport → processing → output",
-    uncertaintyMethod: "±30% deterministic range (default) or Monte Carlo simulation",
-    references: [
-      "EPA WARM v16",
-      "IPCC 2006 Guidelines for National GHG Inventories",
-      "IPCC 2019 Refinement",
-      "GLEC Framework v3.0",
-      "GREET 2024 (Argonne National Lab)",
-      "ecoinvent 3.9",
-      "IEA Emission Factors by Country (2024)",
-    ],
-  });
-});
-
 // ── Audit ─────────────────────────────────────────────────────────────
-
-router.get("/audit/:entityId", (req: Request, res: Response) => {
-  const entries = getAuditTrail(req.params.entityId);
-  res.json(entries);
-});
-
-router.get("/audit", (req: Request, res: Response) => {
-  const offset = parseInt(req.query.offset as string) || 0;
-  const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
-  res.json(getAllAuditEntries(offset, limit));
-});
 
 router.get("/audit/export", (req: Request, res: Response) => {
   const format = req.query.format || "json";
@@ -348,6 +337,17 @@ router.get("/audit/export", (req: Request, res: Response) => {
 router.get("/audit/verify", async (_req: Request, res: Response) => {
   const result = await verifyChainIntegrity();
   res.json(result);
+});
+
+router.get("/audit", (req: Request, res: Response) => {
+  const offset = parseInt(req.query.offset as string) || 0;
+  const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+  res.json(getAllAuditEntries(offset, limit));
+});
+
+router.get("/audit/:entityId", (req: Request, res: Response) => {
+  const entries = getAuditTrail(req.params.entityId);
+  res.json(entries);
 });
 
 // ── FAOSTAT Data ──────────────────────────────────────────────────────
